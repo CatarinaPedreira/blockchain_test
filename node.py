@@ -40,8 +40,9 @@ def new_transaction():
 
     tx_data["timestamp"] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     tx_data["private_key"] = private_key
+    tx_data["public_key"] = public_key
 
-    blockchain.add_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"], tx_data["private_key"])
+    blockchain.add_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"], tx_data["private_key"], tx_data["public_key"])
     return "Success", 200
 
 

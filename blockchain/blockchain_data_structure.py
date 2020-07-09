@@ -2,6 +2,8 @@ import hashlib
 from datetime import datetime
 from uuid import uuid4
 import json
+
+from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 from blockchain.consensus import ProofOfWork
 from Crypto.Hash import SHA256
 
@@ -12,7 +14,7 @@ class Transaction:
         self.fromAddress = from_address
         self.toAddress = to_address
         self.amount = amount
-        self.signature = ""
+        self.signature = b''  # Empty bytes variable
         global t
         t = SHA256.new()
 
@@ -21,13 +23,25 @@ class Transaction:
 
     def calculate_hash(self):
         t.update(b'str(self.__dict__)')
-        return t.hexdigest()
+        return t
 
-    def sign_transaction(self, signing_key):  # Assinar o hash c/ a chave privada
-        pass
+    def sign_transaction(self, priv_key):
+        signer = PKCS115_SigScheme(priv_key)
+        self.signature = signer.sign(self.calculate_hash())
 
-    def is_valid(self, signing_key):  # Verificar se a transação é valida (se a assinatura e valida)
-        pass
+    def is_valid(self, pub_key):
+        if not self.signature or len(self.signature) == 0:
+            print("No signature is this transaction!")
+            return False
+
+        elif self.fromAddress is None:  # If it is a transaction to reward the miner that owns this local blockchain
+            return True
+
+        signer2 = PKCS115_SigScheme(pub_key)
+        h = SHA256.new()
+        h.update(b'Hello')
+        signer2.verify(h, self.signature)  # Throws exception if signature is not valid
+        return True
 
 
 class Block:
@@ -111,14 +125,14 @@ class Blockchain:
         #  add sanity checks
         return "Block mined"
 
-    def add_transaction(self, from_address, to_address, amount, sign_key):
+    def add_transaction(self, from_address, to_address, amount, private_key, public_key):
         transaction = Transaction(from_address, to_address, amount)
-        transaction.sign_transaction(sign_key)
+        transaction.sign_transaction(private_key)
 
         if not transaction.fromAddress or not transaction.toAddress:
             raise Exception('The transaction must include from and to address!')
 
-        if not transaction.is_valid(sign_key):
+        if not transaction.is_valid(public_key):
             raise Exception('The transaction is not valid !')
 
         self.pending_transactions.append(transaction)
