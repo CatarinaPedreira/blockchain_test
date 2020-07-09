@@ -11,10 +11,22 @@ class Transaction:
         self.fromAddress = from_address
         self.toAddress = to_address
         self.amount = amount
-        # self.signature = signature
+        self.signature = ""
+        global t
+        t = SHA256.new()
 
     def __repr__(self):
         return "Transaction " + self.id
+
+    def calculate_hash(self):
+        t.update(b'str(self.__dict__)')
+        return t.hexdigest()
+
+    def sign_transaction(self, signing_key):  # Assinar o hash c/ a chave privada
+        pass
+
+    def is_valid(self, signing_key):  # Verificar se a transação é valida (se a assinatura e valida)
+        pass
 
 
 class Block:
@@ -56,6 +68,12 @@ class Block:
         print("Current hash: ", self.currentHash)
         print()
 
+    def has_valid_transactions(self):
+        for trans in self.transactions:
+            if not trans.is_valid():
+                return False
+        return True
+
     def serialize(self):
         return json.dumps(self, sort_keys=True).encode('utf-8')
 
@@ -90,14 +108,25 @@ class Blockchain:
         self.chain.append(block)
 
         self.pending_transactions = [
-            Transaction(None, mine_pending_address, self.miningReward)
+            Transaction(None, mine_pending_address, self.miningReward)  # Replace with add_transaction, ver qual é a chave p assinar aqui
             # The miner is rewarded with coins for mining this block, but only when the next block is mined
         ]
-        #add sanity checks
+
+        #  add sanity checks
         return "Block mined"
 
-    def create_transaction(self, transaction):
+    def add_transaction(self, from_address, to_address, amount, sign_key):
+        transaction = Transaction(from_address, to_address, amount)
+        transaction.sign_transaction(sign_key)
+
+        if not transaction.fromAddress or not transaction.toAddress:
+            raise Exception('The transaction must include from and to address!')
+
+        if not transaction.is_valid(sign_key):
+            raise Exception('The transaction is not valid !')
+
         self.pending_transactions.append(transaction)
+        return transaction
 
     def get_balance(self, address):
         balance = 0
@@ -122,6 +151,10 @@ class Blockchain:
         for i in range(1, len(self.chain)):
             curr_block = self.chain[i]
             previous_block = self.chain[i - 1]
+
+            if not curr_block.has_valid_transactions():
+                print("Current block", "(" + str(i) + ")", "has invalid transactions.")
+                return False
 
             if curr_block.currentHash != curr_block.calculate_hash():
                 print("Current hash of block", "(" + str(i) + ")", "is invalid.")

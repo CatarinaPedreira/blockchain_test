@@ -1,12 +1,19 @@
 #https://flask.palletsprojects.com/en/1.1.x/
 from uuid import uuid4
 from datetime import datetime
-from flask import Flask
+from flask import Flask, request
 from blockchain.blockchain_data_structure import Blockchain
+from blockchain.crypto import generate_key_pair
 import json
 
 # Instantiate our Node
 app = Flask(__name__)
+
+# Obtain public/private key_pair for this node
+private_key = generate_key_pair()[0]
+print("Private key: ", private_key)
+public_key = generate_key_pair()[1]
+print("Public key: ", public_key)
 
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
@@ -24,20 +31,22 @@ def get_chain():
     }
     return json.dumps(response), 200
 
+
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
     #TODO input sanitization
     tx_data = request.get_json()
     tx_data["timestamp"] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    tx_data["private_key"] = private_key
 
-    blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["ammount"])
-
+    blockchain.add_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"], tx_data["private_key"])
     return "Success", 200
 
 
 @app.route('/transactions/pending', methods=['GET'])
 def get_pending_transactions():
     return json.dumps(blockchain.pending_transactions), 200
+
 
 @app.route('/register/node', methods=['POST'])
 def register_peer_node():
