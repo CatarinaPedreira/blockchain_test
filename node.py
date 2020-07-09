@@ -1,7 +1,8 @@
 #https://flask.palletsprojects.com/en/1.1.x/
 from uuid import uuid4
 from datetime import datetime
-from flask import Flask, request
+from flask import Flask
+from flask import request
 from blockchain.blockchain_data_structure import Blockchain
 from blockchain.crypto import generate_key_pair
 import json
@@ -36,6 +37,7 @@ def get_chain():
 def new_transaction():
     #TODO input sanitization
     tx_data = request.get_json()
+
     tx_data["timestamp"] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     tx_data["private_key"] = private_key
 
