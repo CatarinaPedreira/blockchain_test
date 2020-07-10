@@ -1,9 +1,8 @@
-import hashlib
 from datetime import datetime
 from uuid import uuid4
 import json
 
-from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
+from crypto.keygen import sign_hash, verify_sig
 from blockchain.consensus import ProofOfWork
 from Crypto.Hash import SHA256
 
@@ -14,7 +13,7 @@ class Transaction:
         self.fromAddress = from_address
         self.toAddress = to_address
         self.amount = amount
-        self.signature = b''  # Empty bytes variable
+        self.signature = b''  # Empty bytes
         global t
         t = SHA256.new()
 
@@ -22,14 +21,13 @@ class Transaction:
         return "Transaction " + self.id
 
     def calculate_hash(self):
-        t.update(b'str(self.__dict__)')
+        t.update(b'self.id + self.fromAddress + self.toAddress + str(self.amount)')  # Can't include sig in hash
         return t
 
-    def sign_transaction(self, priv_key):
-        signer = PKCS115_SigScheme(priv_key)
-        self.signature = signer.sign(self.calculate_hash())
+    def sign_transaction(self, node_id):
+        self.signature = sign_hash(self.calculate_hash(), node_id)
 
-    def is_valid(self, pub_key):
+    def check_valid(self, node_id):
         if not self.signature or len(self.signature) == 0:
             print("No signature is this transaction!")
             return False
@@ -37,10 +35,9 @@ class Transaction:
         elif self.fromAddress is None:  # If it is a transaction to reward the miner that owns this local blockchain
             return True
 
-        signer2 = PKCS115_SigScheme(pub_key)
         h = SHA256.new()
-        h.update(b'Hello')
-        signer2.verify(h, self.signature)  # Throws exception if signature is not valid
+        h.update(b'self.id + self.fromAddress + self.toAddress + str(self.amount)')
+        verify_sig(h, self.signature, node_id)  # Throws error if signature is invalid
         return True
 
 
@@ -79,8 +76,7 @@ class Block:
 
     def has_valid_transactions(self):
         for trans in self.transactions:
-            if not trans.is_valid():
-                return False
+            trans.check_valid()  # Returns exception if not valid
         return True
 
     def serialize(self):
@@ -88,19 +84,16 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self, miner_address):
+    def __init__(self, miner_address, node_identifier):
         self.chain = [self.calculate_gen_block()]
-
         self.pending_transactions = []  # Due to proof-of-work phase
-
         self.peer_nodes = set()
-
         self.miner_address = miner_address  # Mined block rewards will always want to go to my own address
+        self.node_identifier = node_identifier  # Node that owns this local blockchain
         # Constants
         self.difficulty = 2  # Determines how long it takes to calculate proof-of-work
         self.miningReward = 100  # Reward if a new block is successfully mined
         self.number_of_transactions = 3  # Number of transactions it waits to create a block
-
 
     def __repr__(self):
         return "class" + str(self.__class__)
@@ -123,34 +116,38 @@ class Blockchain:
 
         print("Block successfully mined!")
         self.chain.append(block)
+        self.pending_transactions.clear()  # Ver se faz sentido aqui
 
         self.pending_transactions = [
-            Transaction(None, self.miner_address, self.miningReward)
+            # Transaction(None, self.miner_address, self.miningReward)
+            self.create_transaction(None, self.miner_address, self.miningReward)
             # The miner is rewarded with coins for mining this block, but only when the next block is mined
         ]
 
         #  add sanity checks
         return "Block mined"
 
-    def add_transaction(self, from_address, to_address, amount, private_key, public_key):
+    def create_transaction(self, from_address, to_address, amount):
         transaction = Transaction(from_address, to_address, amount)
-        transaction.sign_transaction(private_key)
 
-        if not transaction.fromAddress or not transaction.toAddress:
-            raise Exception('The transaction must include from and to address!')
+        if not transaction.toAddress:
+            raise Exception('The transaction must "to address"!')
 
-        if not transaction.is_valid(public_key):
-            raise Exception('The transaction is not valid !')
+        transaction.sign_transaction(self.node_identifier)
+        transaction.check_valid(self.node_identifier)  # This verification should be done by peer nodes, right?
 
         self.pending_transactions.append(transaction)
         if len(self.pending_transactions) >= self.number_of_transactions:
+            print("These are the pending transactions: ", self.pending_transactions)
             self.mine_pending_transactions()
+
         return transaction
 
     def get_balance(self, address):
         balance = 0
         for block in self.chain:
             if isinstance(block.transactions, Transaction):  # If there is only one transaction
+                print("Only one transaction: ", block.transactions, block.transactions.amount)
                 if address == block.transactions.toAddress:
                     balance += block.transactions.amount
 
@@ -166,7 +163,7 @@ class Blockchain:
 
         return balance
 
-    def is_chain_valid(self):
+    def is_chain_valid(self, pub_key):
         for i in range(1, len(self.chain)):
             curr_block = self.chain[i]
             previous_block = self.chain[i - 1]
