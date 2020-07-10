@@ -13,7 +13,7 @@ class Transaction:
         self.fromAddress = from_address
         self.toAddress = to_address
         self.amount = amount
-        self.signature = b''  # Empty bytes
+        self.signature = b''
         global t
         t = SHA256.new()
 
@@ -21,7 +21,7 @@ class Transaction:
         return "Transaction " + self.id
 
     def calculate_hash(self):
-        t.update(b'self.id + self.fromAddress + self.toAddress + str(self.amount)')  # Can't include sig in hash
+        t.update("self.id + self.fromAddress + self.toAddress + str(self.amount)".encode())  # Can't include sig in hash
         return t
 
     def sign_transaction(self, node_id):
@@ -32,11 +32,11 @@ class Transaction:
             print("No signature is this transaction!")
             return False
 
-        elif self.fromAddress is None:  # If it is a transaction to reward the miner that owns this local blockchain
+        if self.fromAddress is None:  # If it is a transaction to reward the miner that owns this local blockchain
             return True
 
         h = SHA256.new()
-        h.update(b'self.id + self.fromAddress + self.toAddress + str(self.amount)')
+        h.update("self.id + self.fromAddress + self.toAddress + str(self.amount)".encode())
         verify_sig(h, self.signature, node_id)  # Throws error if signature is invalid
         return True
 
@@ -57,7 +57,7 @@ class Block:
         return self.timestamp + self.transactions + "Previous hash: " + self.previousHash + self.currentHash
 
     def calculate_hash(self):
-        h.update(b'str(self.__dict__)')
+        h.update(str(self.__dict__).encode())
         return h.hexdigest()
 
     def set_hash(self, hash_code):
@@ -90,6 +90,7 @@ class Blockchain:
         self.peer_nodes = set()
         self.miner_address = miner_address  # Mined block rewards will always want to go to my own address
         self.node_identifier = node_identifier  # Node that owns this local blockchain
+
         # Constants
         self.difficulty = 2  # Determines how long it takes to calculate proof-of-work
         self.miningReward = 100  # Reward if a new block is successfully mined
@@ -109,20 +110,16 @@ class Blockchain:
 
     def mine_pending_transactions(self):
         latest_block_index = self.get_latest_block().index + 1
-        block = Block(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), self.pending_transactions,
+        block_trans = self.pending_transactions.copy()
+        block = Block(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), block_trans,
                       latest_block_index)  # Not possible to do it like this in real blockchains
         block.previousHash = self.get_latest_block().currentHash
         block.mine_block(self.difficulty)
 
-        print("Block successfully mined!")
+        print("Block successfully mined: ", block.currentHash)
         self.chain.append(block)
-        self.pending_transactions.clear()  # Ver se faz sentido aqui
-
-        self.pending_transactions = [
-            # Transaction(None, self.miner_address, self.miningReward)
-            self.create_transaction(None, self.miner_address, self.miningReward)
-            # The miner is rewarded with coins for mining this block, but only when the next block is mined
-        ]
+        self.pending_transactions.clear()
+        self.create_transaction(None, self.miner_address, self.miningReward)
 
         #  add sanity checks
         return "Block mined"
@@ -137,8 +134,8 @@ class Blockchain:
         transaction.check_valid(self.node_identifier)  # This verification should be done by peer nodes, right?
 
         self.pending_transactions.append(transaction)
+
         if len(self.pending_transactions) >= self.number_of_transactions:
-            print("These are the pending transactions: ", self.pending_transactions)
             self.mine_pending_transactions()
 
         return transaction
@@ -147,7 +144,6 @@ class Blockchain:
         balance = 0
         for block in self.chain:
             if isinstance(block.transactions, Transaction):  # If there is only one transaction
-                print("Only one transaction: ", block.transactions, block.transactions.amount)
                 if address == block.transactions.toAddress:
                     balance += block.transactions.amount
 
