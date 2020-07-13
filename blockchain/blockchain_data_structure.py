@@ -5,6 +5,8 @@ import json
 from crypto.keygen import sign_hash, verify_sig
 from blockchain.consensus import ProofOfWork
 from Crypto.Hash import SHA256
+import requests
+
 
 
 class Transaction:
@@ -84,7 +86,13 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self, miner_address, node_identifier):
+    def __init__(self, miner_address, node_identifier, host, port):
+        # Node Location
+        self.address = '{}:{}'.format(host, port)
+
+        # Node Discovery
+        self.discovery_node_address = '0.0.0.0:5000'
+
         self.chain = [self.calculate_gen_block()]
         self.pending_transactions = []  # Due to proof-of-work phase
         self.peer_nodes = set()
@@ -184,4 +192,19 @@ class Blockchain:
 
     def register_node(self, address):
         self.peer_nodes.add(address)
+
+    def obtain_peer_node(self):
+        if self.address != self.discovery_node_address:
+            self.peer_nodes.add(self.discovery_node_address)    # Assuming it never crashes
+            response = requests.post('http://{}/register/node'.format(self.discovery_node_address),
+                                     json={'node_address': '{}'.format(self.address)}).json()
+
+            for address in response['total_nodes']:
+                # Add and register all peers
+                self.peer_nodes.add(address)
+                requests.post('http://{}/register/node'.format(address),
+                              json={'node_address': '{}'.format(self.address)})
+
+            print(self.peer_nodes)
+
 ########################################################################################################################

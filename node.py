@@ -17,9 +17,6 @@ node_identifier = str(uuid4()).replace('-', '')
 # Obtain public/private key_pair for this node
 generate_key_pair(node_identifier)
 
-# Instantiate the Blockchain
-blockchain = Blockchain("catarina-address", node_identifier)
-
 
 @app.route('/getChain', methods=['GET'])
 def get_chain():
@@ -37,11 +34,8 @@ def new_transaction():
     tx_data = request.get_json()
 
     tx_data["timestamp"] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-    tx_data["private_key"] = private_key
-    tx_data["public_key"] = public_key
 
-    blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"],
-                                  tx_data["private_key"], tx_data["public_key"])
+    blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"])
     return "Success", 200
 
 
@@ -53,16 +47,20 @@ def get_pending_transactions():
 @app.route('/register/node', methods=['POST'])
 def register_peer_node():
     node_address = request.get_json()["node_address"]
-    blockchain.register_node(node_address)
 
     response = {
         'message': 'Node added',
         'total_nodes': list(blockchain.peer_nodes),
     }
-
+    blockchain.register_node(node_address)
     return json.dumps(response), 200
 
 
+@app.route('/peers', methods=['GET'])
+def get_known_peers():
+    return json.dumps(list(blockchain.peer_nodes)), 200
+
+# Do we still need these functions?
 #TODO
 #@app.route('/register_with', methods=['POST'])
 #def register_with_existing_node():
@@ -79,5 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
     port = args.port
-
-    app.run(host='0.0.0.0', port=port)
+    host = '0.0.0.0'
+    blockchain = Blockchain("catarina-address", node_identifier, host, port)
+    blockchain.obtain_peer_node()
+    app.run(host=host, port=port)
