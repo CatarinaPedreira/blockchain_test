@@ -31,18 +31,3 @@ def verify_sig(hc, signature, node_id):
     pub_key = RSA.import_key(f.read())  # Read public key from file
     signer = PKCS115_SigScheme(pub_key)
     signer.verify(hc, signature)
-
-# TESTS
-# def sign_ex():
-#     h = SHA256.new()
-#     h.update(b'Hello')
-#     signer = PKCS115_SigScheme(priv_import_key)
-#     return signer.sign(h)
-#
-# def verify_ex(signature):
-#     a = SHA256.new()
-#     a.update(b'Hello')
-#     signer = PKCS115_SigScheme(pub_import_key)
-#     signer.verify(a, signature)
-#
-# verify_ex(sign_ex())

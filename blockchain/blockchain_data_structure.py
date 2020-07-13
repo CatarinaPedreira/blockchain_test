@@ -8,7 +8,6 @@ from Crypto.Hash import SHA256
 import requests
 
 
-
 class Transaction:
     def __init__(self, from_address, to_address, amount):
         self.id = str(uuid4())
@@ -16,15 +15,14 @@ class Transaction:
         self.toAddress = to_address
         self.amount = amount
         self.signature = b''
-        global t
-        t = SHA256.new()
 
     def __repr__(self):
         return "Transaction " + self.id
 
     def calculate_hash(self):
-        t.update("self.id + self.fromAddress + self.toAddress + str(self.amount)".encode())  # Can't include sig in hash
-        return t
+        t_hash = SHA256.new()
+        t_hash.update("self.id + self.fromAddress + self.toAddress + str(self.amount)".encode())
+        return t_hash
 
     def sign_transaction(self, node_id):
         self.signature = sign_hash(self.calculate_hash(), node_id)
@@ -52,15 +50,14 @@ class Block:
         self.previousHash = ""
         self.currentHash = ""
         self.nonce = 0
-        global h
-        h = SHA256.new()  # Find a better place to put this in
 
     def __repr__(self):
         return self.timestamp + self.transactions + "Previous hash: " + self.previousHash + self.currentHash
 
     def calculate_hash(self):
-        h.update(str(self.__dict__).encode())
-        return h.hexdigest()
+        b_hash = SHA256.new()
+        b_hash.update(str(self.__dict__).encode())
+        return b_hash.hexdigest()
 
     def set_hash(self, hash_code):
         self.currentHash = hash_code
@@ -108,7 +105,7 @@ class Blockchain:
         return "class" + str(self.__class__)
 
     def calculate_gen_block(self):
-        gen_block = Block(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), Transaction(None, " ", 0), 0)
+        gen_block = Block(datetime.now(), Transaction(None, " ", 0), 0)
         gen_block.set_hash(gen_block.calculate_hash())
         gen_block.previousHash = "0"
         return gen_block
@@ -119,7 +116,7 @@ class Blockchain:
     def mine_pending_transactions(self):
         latest_block_index = self.get_latest_block().index + 1
         block_trans = self.pending_transactions.copy()
-        block = Block(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), block_trans,
+        block = Block(datetime.now(), block_trans,
                       latest_block_index)  # Not possible to do it like this in real blockchains
         block.previousHash = self.get_latest_block().currentHash
         block.mine_block(self.difficulty)
@@ -167,7 +164,7 @@ class Blockchain:
 
         return balance
 
-    def is_chain_valid(self, pub_key):
+    def is_chain_valid(self):
         for i in range(1, len(self.chain)):
             curr_block = self.chain[i]
             previous_block = self.chain[i - 1]
