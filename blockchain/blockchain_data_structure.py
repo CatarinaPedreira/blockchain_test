@@ -32,9 +32,6 @@ class Transaction:
             print("No signature is this transaction!")
             return False
 
-        if self.fromAddress is None:  # If it is a transaction to reward the miner that owns this local blockchain
-            return True
-
         h = SHA256.new()
         h.update("self.id + self.fromAddress + self.toAddress + str(self.amount)".encode())
         verify_sig(h, self.signature, node_id)  # Throws error if signature is invalid
