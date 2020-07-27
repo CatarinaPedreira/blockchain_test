@@ -1,12 +1,31 @@
-#https://flask.palletsprojects.com/en/1.1.x/
 from uuid import uuid4
 from datetime import datetime
 from flask import Flask
 from flask import request
-from blockchain.blockchain_data_structure import Blockchain
+from blockchain.blockchain_data_structure import BlockchainInstance
 from crypto.keygen import generate_key_pair
 import json
 import jsonpickle
+import os
+from os.path import join, dirname
+from dotenv import load_dotenv
+from argparse import ArgumentParser
+
+# Create .env file path.
+dotenv_path = join(dirname(__file__), '.env')
+
+# Load env vars
+load_dotenv(dotenv_path)
+default_address=os.environ["DEFAULT_ADDRESS"]
+default_host= os.environ["DEFAULT_HOST"]
+for k, v in os.environ.items():
+    print("Environment variables:")
+    print(f'{k}={v}')
+
+if "PORT" in os.environ:
+    custom_port = os.environ["PORT"]
+else:
+    print(f'{"PORT"} does not exist')
 
 # Instantiate our Node
 app = Flask(__name__)
@@ -30,10 +49,17 @@ def get_chain():
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
-    #TODO input sanitization
     tx_data = request.get_json()
-
     tx_data["timestamp"] = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    try:
+        check_transaction_arguments(tx_data["from_address"], tx_data["to_address"], tx_data["amount"])
+    except Exception as e:
+        json_arguments = ["from_address", "to_address", "amount"]
+        for argument in json_arguments:
+            if argument not in tx_data:
+                return "Transaction must have a " + argument
+
+        return str(e), 200
 
     blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"])
     return "Success", 200
@@ -69,15 +95,26 @@ def get_known_peers():
 #@app.route('/add_block', methods=['POST'])
 #def add_and_announce_block():
 
+def check_transaction_arguments(from_address, to_address, amount):
+    if not to_address or not from_address:
+        raise Exception("Transaction must have a from and to destination address")
+
+    # What type should from and to address be? How do we define public keys?
+    # TODO - Add from and to address type checks
+
+    if not type(amount) is float:
+        raise Exception("Transaction amount must be a float value")
+
+    if amount < 0:
+        raise Exception("Transaction amount must be greater or equal than 0")
+
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
+    parser = ArgumentParser(description='Parametrize the blockchain instance.')
     parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
     args = parser.parse_args()
+    print(args)
     port = args.port
-    host = '0.0.0.0'
-    blockchain = Blockchain("catarina-address", node_identifier, host, port)
-    blockchain.obtain_peer_node()
+    host = default_host
+    blockchain = BlockchainInstance("default_address", node_identifier, host, port)
     app.run(host=host, port=port)
