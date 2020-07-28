@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 import json
-from crypto.keygen import sign_hash, verify_sig, generate_key_pair
+from crypto.keygen import sign_hash, verify_sig, generate_key_pair, get_public_key
 from blockchain.consensus import ProofOfWork
 from Crypto.Hash import SHA256
 import requests
@@ -9,7 +9,7 @@ import requests
 
 class Transaction:
     def __init__(self, from_address, to_address, amount, node_id):
-        self.check_arguments(from_address, to_address, amount, node_id)
+        self.check_arguments(to_address, amount, node_id)
         self.id = str(uuid4())
         self.node_id = node_id
         self.fromAddress = from_address
@@ -20,7 +20,7 @@ class Transaction:
     def __repr__(self):
         return "Transaction " + self.id
 
-    def check_arguments(self, from_address, to_address, amount, node_id):
+    def check_arguments(self, to_address, amount, node_id):
         if not to_address:
             raise Exception("Transaction must have a destination address")
 
@@ -57,6 +57,10 @@ class Transaction:
 
     def transaction_content(self):
         return "{}{}{}{}{}".format(self.id, self.node_id, self.fromAddress, self.toAddress, self.amount)
+
+    def get_public_key(self):
+        return get_public_key(self.node_id)
+
 
 class Block:
 
@@ -204,12 +208,20 @@ class BlockchainInstance:
         if not from_address:
             raise Exception("Transaction must have a from address!")
 
+        return transaction
+
+    def add_transaction(self, transaction):
+        # Before adding to pending transactions, broadcast and wait for answers
         self.pending_transactions.append(transaction)
 
         if len(self.pending_transactions) >= self.number_of_transactions:
             self.mine_pending_transactions()
 
-        return transaction
+    # def broadcast_transaction(self, transaction):
+    #     self.obtain_peer_node()
+    #     if len(self.peer_nodes) > 1:
+    #         for node in self.peer_nodes:
+    #             pass
 
     def get_balance(self, address):
         balance = 0

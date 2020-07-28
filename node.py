@@ -61,8 +61,15 @@ def new_transaction():
 
         return str(e), 200
 
-    blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"])
+    transaction = blockchain.create_transaction(tx_data["from_address"], tx_data["to_address"], tx_data["amount"])
+    broadcast_and_verify(transaction)
+    blockchain.add_transaction(transaction)
     return "Success", 200
+
+
+def broadcast_and_verify(transaction):
+    # TODO check how to broadcast to other nodes!
+    pass
 
 
 @app.route('/transactions/pending', methods=['GET'])
@@ -94,6 +101,7 @@ def get_known_peers():
 #TODO
 #@app.route('/add_block', methods=['POST'])
 #def add_and_announce_block():
+
 
 def check_transaction_arguments(from_address, to_address, amount):
     if not to_address or not from_address:

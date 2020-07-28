@@ -43,4 +43,17 @@ def verify_sig(hc, signature, node_id):
         raise Exception("Signature failed, integrity and/or signature value was not upheld")
 
 
+def get_public_key(node_id):
+    file_pub = str(node_id) + "-public.pem"
+    if not os.path.exists(file_pub):
+        raise Exception("Public key does not exist")
+    f = open(file_pub, 'r')
+    try:
+        pub_key = RSA.import_key(f.read())
+        f.close()
+        return pub_key
+    except:
+        raise Exception("Couldn't access public key with the following node-id: ", node_id)
+
+
 
